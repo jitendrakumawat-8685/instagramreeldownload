@@ -1,8 +1,10 @@
+import datetime
 import streamlit as st
 import instaloader
 import os
 from PIL import Image
 from io import BytesIO
+import io
 import requests
 from pathlib import Path
 import re
@@ -23,6 +25,10 @@ L = instaloader.Instaloader(
     compress_json=False
 )
 
+# === Initialize download log in session state ===
+if 'download_log' not in st.session_state:
+    st.session_state['download_log'] = []
+
 # === State Init ===
 if 'selected_feature' not in st.session_state:
     st.session_state['selected_feature'] = None
@@ -32,12 +38,8 @@ st.markdown("### Choose a Feature:")
 features = {
     "📸 Post/Reel Downloader": "post",
     "🖼️ Profile Picture Downloader": "dp",
-    # "👻 Story Downloader": "story",
-    # "📤 Upload to Instagram": "upload",
     "🔍 Profile Viewer": "profile",
     "📁 Download History": "history"
-    # "🔐 Login / Logout": "login",
-    # "👥 Manage Accounts": "accounts"
 }
 
 cols = st.columns(2)
@@ -47,6 +49,7 @@ for i, (label, key) in enumerate(features.items()):
 
 st.markdown("---")
 selected = st.session_state['selected_feature']
+
 # ===== Helper Function to "Summarize" Captions =====
 def summarize_caption(caption):
     if not caption:
@@ -66,7 +69,6 @@ def summarize_caption(caption):
 # === Feature: Post/Reel Downloader ===
 if selected == "post":
     st.subheader("📸 Download Instagram Post or Reel")
-    # st.markdown("✅ Paste **multiple Instagram post/reel URLs** below, one per line.")
     url = st.text_input("Paste Post/Reel URL", key="post_urls")
     if st.button("Download Post", key="download_post"):
         try:
@@ -92,44 +94,73 @@ if selected == "post":
                 if post.typename == "GraphImage":
                     st.info("🖼️ This is a single image post.")
                     img_data = requests.get(post.url).content
-                    img = Image.open(BytesIO(img_data))
+                    img = Image.open(io.BytesIO(img_data))
                     st.image(img, caption="Image")
                     
-                    img_path = os.path.join(DOWNLOAD_DIR, f"{owner}.jpg")
-                    with open(img_path, "wb") as f:
-                        f.write(img_data)
-
-                    # st.success(f"✅ Saved to: {img_path}")
+                    st.download_button(
+                        label="Download Image",
+                        data=img_data,
+                        file_name=f"{post.owner_username}.jpg",
+                        mime="image/jpeg"
+                    )
+                    # Log download
+                    st.session_state['download_log'].append({
+                        "filename": f"{post.owner_username}.jpg",
+                        "timestamp": datetime.datetime.now()
+                    })
 
                 elif post.typename == "GraphVideo":
                     st.info("🎥 This is a video post.")
                     st.video(post.video_url)
 
                     vid_data = requests.get(post.video_url).content
-                    vid_path = os.path.join(DOWNLOAD_DIR, f"{owner}.mp4")
-                    with open(vid_path, "wb") as f:
-                        f.write(vid_data)
+                    st.download_button(
+                        label="Download Video",
+                        data=vid_data,
+                        file_name=f"{post.owner_username}.mp4",
+                        mime="video/mp4"
+                    )
+                    # Log download
+                    st.session_state['download_log'].append({
+                        "filename": f"{post.owner_username}.mp4",
+                        "timestamp": datetime.datetime.now()
+                    })
 
                 elif post.typename == "GraphSidecar":
                     st.info("🌀 This is a carousel post with multiple items:")
-                    sidecar_nodes = list(post.get_sidecar_nodes())  # ✅ Convert generator to list ONCE
+                    sidecar_nodes = list(post.get_sidecar_nodes())
 
                     for idx, node in enumerate(sidecar_nodes):
                         st.markdown(f"**Slide {idx + 1}:**")
                         if node.is_video:
                             st.video(node.video_url)
                             vid_data = requests.get(node.video_url).content
-                            vid_path = os.path.join(DOWNLOAD_DIR, f"{owner}_video_{idx+1}.mp4")
-                            with open(vid_path, "wb") as f:
-                                f.write(vid_data)
+                            st.download_button(
+                                label=f"Download Video {idx + 1}",
+                                data=vid_data,
+                                file_name=f"{post.owner_username}_video_{idx+1}.mp4",
+                                mime="video/mp4"
+                            )
+                            # Log download
+                            st.session_state['download_log'].append({
+                                "filename": f"{post.owner_username}_video_{idx+1}.mp4",
+                                "timestamp": datetime.datetime.now()
+                            })
                         else:
                             img_data = requests.get(node.display_url).content
-                            img = Image.open(BytesIO(img_data))
+                            img = Image.open(io.BytesIO(img_data))
                             st.image(img, caption=f"Image {idx + 1}")
-
-                            img_path = os.path.join(DOWNLOAD_DIR, f"{owner}_image_{idx+1}.jpg")
-                            with open(img_path, "wb") as f:
-                                f.write(img_data)
+                            st.download_button(
+                                label=f"Download Image {idx + 1}",
+                                data=img_data,
+                                file_name=f"{post.owner_username}_image_{idx+1}.jpg",
+                                mime="image/jpeg"
+                            )
+                            # Log download
+                            st.session_state['download_log'].append({
+                                "filename": f"{post.owner_username}_image_{idx+1}.jpg",
+                                "timestamp": datetime.datetime.now()
+                            })
 
                 progress.progress(100)
                 st.success("✅ Download complete.")
@@ -143,10 +174,21 @@ elif selected == "dp":
     if st.button("Download DP", key="download_dp"):
         try:
             profile = instaloader.Profile.from_username(L.context, username)
-            img = Image.open(BytesIO(requests.get(profile.profile_pic_url).content))
-            img.save(f"{DOWNLOAD_DIR}/{username}_dp.jpg")
+            img_data = requests.get(profile.profile_pic_url).content
+            img = Image.open(BytesIO(img_data))
             st.image(img, caption=f"{username}'s Profile Picture")
-            st.success("✅ Saved.")
+            st.download_button(
+                label="Download Profile Picture",
+                data=img_data,
+                file_name=f"{username}_dp.jpg",
+                mime="image/jpeg"
+            )
+            # Log download
+            st.session_state['download_log'].append({
+                "filename": f"{username}_dp.jpg",
+                "timestamp": datetime.datetime.now()
+            })
+            st.success("✅ Ready to download.")
         except Exception as e:
             st.error(f"❌ Error: {e}")
 
@@ -170,11 +212,13 @@ elif selected == "profile":
 
 # === Feature: Download History ===
 elif selected == "history":
-    st.subheader("📁 Download History")
-    files = os.listdir(DOWNLOAD_DIR)
-    if files:
-        for file in sorted(files, reverse=True):
-            st.markdown(f"- `{file}`")
-    else:
-        st.info("Nothing downloaded yet.")
+    st.subheader("📁 Download History (Session)")
 
+    if st.session_state['download_log']:
+        # Show logs sorted by timestamp descending
+        sorted_logs = sorted(st.session_state['download_log'], key=lambda x: x['timestamp'], reverse=True)
+        for entry in sorted_logs:
+            ts_str = entry['timestamp'].strftime("%Y-%m-%d %H:%M:%S")
+            st.markdown(f"- `{entry['filename']}` downloaded at {ts_str}")
+    else:
+        st.info("No downloads in this session yet.")
