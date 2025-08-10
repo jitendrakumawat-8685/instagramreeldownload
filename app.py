@@ -104,10 +104,10 @@ if selected == "post":
                         mime="image/jpeg"
                     )
                     # Log download
-                    st.session_state['download_log'].append({
-                        "filename": f"{post.owner_username}.jpg",
-                        "timestamp": datetime.datetime.now()
-                    })
+                    # st.session_state['download_log'].append({
+                    #     "filename": f"{post.owner_username}.jpg",
+                    #     "timestamp": datetime.datetime.now()
+                    # })
 
                 elif post.typename == "GraphVideo":
                     st.info("🎥 This is a video post.")
@@ -121,10 +121,10 @@ if selected == "post":
                         mime="video/mp4"
                     )
                     # Log download
-                    st.session_state['download_log'].append({
-                        "filename": f"{post.owner_username}.mp4",
-                        "timestamp": datetime.datetime.now()
-                    })
+                    # st.session_state['download_log'].append({
+                    #     "filename": f"{post.owner_username}.mp4",
+                    #     "timestamp": datetime.datetime.now()
+                    # })
 
                 elif post.typename == "GraphSidecar":
                     st.info("🌀 This is a carousel post with multiple items:")
@@ -142,10 +142,10 @@ if selected == "post":
                                 mime="video/mp4"
                             )
                             # Log download
-                            st.session_state['download_log'].append({
-                                "filename": f"{post.owner_username}_video_{idx+1}.mp4",
-                                "timestamp": datetime.datetime.now()
-                            })
+                            # st.session_state['download_log'].append({
+                            #     "filename": f"{post.owner_username}_video_{idx+1}.mp4",
+                            #     "timestamp": datetime.datetime.now()
+                            # })
                         else:
                             img_data = requests.get(node.display_url).content
                             img = Image.open(io.BytesIO(img_data))
@@ -157,10 +157,10 @@ if selected == "post":
                                 mime="image/jpeg"
                             )
                             # Log download
-                            st.session_state['download_log'].append({
-                                "filename": f"{post.owner_username}_image_{idx+1}.jpg",
-                                "timestamp": datetime.datetime.now()
-                            })
+                            # st.session_state['download_log'].append({
+                            #     "filename": f"{post.owner_username}_image_{idx+1}.jpg",
+                            #     "timestamp": datetime.datetime.now()
+                            # })
 
                 progress.progress(100)
                 st.success("✅ Download complete.")
@@ -199,7 +199,10 @@ elif selected == "profile":
     if st.button("View Profile", key="view_profile"):
         try:
             profile = instaloader.Profile.from_username(L.context, username)
-            st.image(profile.profile_pic_url, width=100)
+            # st.image(profile.profile_pic_url, width=100)
+            img_response = requests.get(profile.profile_pic_url)
+            img = Image.open(BytesIO(img_response.content))
+            st.image(img, width=150)
             st.markdown(f"**Name:** {profile.full_name}")
             st.markdown(f"**Username:** `{profile.username}`")
             st.markdown(f"**Followers:** {profile.followers}")
